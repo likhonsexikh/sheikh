@@ -1,0 +1,7 @@
+# sdk/pnpm-workspace.yaml
+packages:
+  # The existing SDKs
+  - 'node'
+  - 'javascript'
+  # New packages will be placed here
+  - 'packages/*'

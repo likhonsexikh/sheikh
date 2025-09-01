@@ -81,3 +81,35 @@ For the automation to work correctly, you must configure the following secrets i
 -   `HF_TOKEN`: Your Hugging Face Hub token with `write` permissions to the target repository.
 
 These secrets are used by the `publish-sdks` and `publish-to-hf` jobs.
+
+---
+
+## Programmatic Endpoint Management
+
+This repository includes a powerful Python script to manage your Inference Endpoints programmatically using the `huggingface_hub` library.
+
+### `scripts/manage_endpoints.py`
+
+This script is a command-line tool that allows you to create, list, inspect, pause, resume, and delete endpoints.
+
+**Usage:**
+
+```bash
+# Get help
+python scripts/manage_endpoints.py --help
+
+# List all your endpoints
+python scripts/manage_endpoints.py list
+
+# Create a new endpoint
+python scripts/manage_endpoints.py create my-new-endpoint --repo "gpt2"
+
+# Delete an endpoint
+python scripts/manage_endpoints.py delete my-new-endpoint
+```
+
+### Automated Deployment in CI/CD
+
+The main CI/CD workflow (`.github/workflows/ci-cd.yml`) includes a `deploy-to-endpoint` job. When a new version tag is pushed, this job automatically runs the `manage_endpoints.py create` command to deploy the new model version to a dedicated Inference Endpoint.
+
+This creates a seamless "GitOps" workflow for your model deployments.

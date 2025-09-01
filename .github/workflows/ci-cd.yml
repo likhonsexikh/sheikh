@@ -301,6 +301,44 @@ jobs:
           # Note: This assumes you have a script to generate docs into the 'site' directory
           # You might need a `mkdocs build` step before this.
 
+  # Job 7: Deploy to Inference Endpoint (only on tags)
+  deploy-to-endpoint:
+    needs: [release, publish-to-hf] # Depends on the release and the model being on the Hub
+    runs-on: ubuntu-latest
+    if: needs.build-and-test.outputs.should_release == 'true'
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install Dependencies
+        run: pip install huggingface_hub
+
+      - name: Create or Update Inference Endpoint
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          # The name of the endpoint will be based on the repo name and major version
+          # e.g., sheikh-llm-v1
+          VERSION_TAG="${{ needs.build-and-test.outputs.version }}"
+          MAJOR_VERSION=$(echo $VERSION_TAG | cut -d. -f1)
+          ENDPOINT_NAME="sheikh-llm-v$MAJOR_VERSION"
+
+          # The repository on the Hub to deploy
+          HF_REPO_ID="${{ github.repository_owner }}/sheikh-llm"
+
+          echo "Deploying model from $HF_REPO_ID to endpoint $ENDPOINT_NAME"
+
+          # This script will attempt to create the endpoint.
+          # In a real-world scenario, you would add logic to this script
+          # to check if the endpoint exists and update it instead.
+          python scripts/manage_endpoints.py create $ENDPOINT_NAME --repo $HF_REPO_ID
+
   # Job 6: Publish to Hugging Face Hub (only on tags)
   publish-to-hf:
     needs: [release]
