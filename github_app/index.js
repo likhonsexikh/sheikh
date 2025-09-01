@@ -121,12 +121,6 @@ module.exports = (app) => {
         });
       }
     }
-        owner,
-        repo,
-        issue_number: pull_number,
-        body: `### Review for ${file.filename}\n\n${sheikhResponse}`,
-      });
-    }
 
     return;
   });
