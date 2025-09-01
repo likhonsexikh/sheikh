@@ -1,3 +1,5 @@
+# .github/workflows/release.yml
+
 name: Release Sheikh LLM
 
 on:
@@ -6,20 +8,148 @@ on:
       - 'v*.*.*'
 
 jobs:
-  build-release:
-    runs-on: ubuntu-latest
+  build:
+    name: Build for ${{ matrix.platform }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux-amd64
+          - os: macos-latest
+            platform: macos-amd64
+          - os: macos-latest
+            platform: macos-arm64
+          - os: windows-latest
+            platform: windows-amd64
+
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # Add setup steps for dependencies if needed.
+      # For example, setting up a specific compiler or environment for cross-compilation.
+      # - name: Setup Build Environment
+      #   run: |
+      #     # Your setup commands here
 
       - name: Build Runtime
-        run: make build  # builds llama.cpp
+        # This command should build your binary.
+        # Pass the platform to your build script to handle platform-specific logic.
+        run: make build TARGET=${{ matrix.platform }}
 
-      - name: Package Model
-        run: tar -czf sheikh-release.tar.gz model/ runtime/ sdk/ examples/
+      - name: Prepare Release Archive
+        shell: bash
+        run: |
+          # Define a platform-specific directory and archive name
+          PLATFORM_NAME="${{ matrix.platform }}"
+          ARCHIVE_DIR="sheikh-dist"
+          mkdir -p $ARCHIVE_DIR
+
+          # Use a temporary staging directory to control the archive's internal structure
+          TEMP_DIR="staging"
+          mkdir -p $TEMP_DIR
+          cp -r model/ $TEMP_DIR/
+          cp -r runtime/ $TEMP_DIR/
+          cp -r sdk/ $TEMP_DIR/
+          cp -r examples/ $TEMP_DIR/
+          cp Dockerfile $TEMP_DIR/
+
+          # Create the archive from the contents of the staging directory
+          if [ "${{ matrix.os }}" == "windows-latest" ]; then
+            ARCHIVE_NAME="sheikh-${{ github.ref_name }}-${PLATFORM_NAME}.zip"
+            7z a "$ARCHIVE_DIR/$ARCHIVE_NAME" "./$TEMP_DIR/*"
+          else
+            ARCHIVE_NAME="sheikh-${{ github.ref_name }}-${PLATFORM_NAME}.tar.gz"
+            tar -czf "$ARCHIVE_DIR/$ARCHIVE_NAME" -C $TEMP_DIR .
+          fi
+          echo "ARCHIVE_PATH=$ARCHIVE_DIR/$ARCHIVE_NAME" >> $GITHUB_ENV
+
+      - name: Upload Release Asset
+        uses: actions/upload-artifact@v3
+        with:
+          name: release-asset-${{ matrix.platform }}
+          path: ${{ env.ARCHIVE_PATH }}
+
+  release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        # This step is crucial to access the release-notes-template.md file
+        uses: actions/checkout@v3
+
+      - name: Download all release assets
+        uses: actions/download-artifact@v3
+        with:
+          path: release-assets
+
+      - name: Get Release Notes from Template
+        id: get_release_notes
+        run: |
+          # Replace the version placeholder (vX.X.X) with the actual tag
+          NOTES=$(sed "s/vX.X.X/${{ github.ref_name }}/g" release-notes-template.md)
+          # Use the new GITHUB_OUTPUT method to set multiline output
+          echo "notes<<EOF" >> $GITHUB_OUTPUT
+          echo "$NOTES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
         uses: ncipollo/release-action@v1
         with:
           tag: ${{ github.ref_name }}
           name: Sheikh LLM ${{ github.ref_name }}
-          files: sheikh-release.tar.gz
+          body: ${{ steps.get_release_notes.outputs.notes }}
+          prerelease: false
+          # Use a glob pattern that reliably finds all archives in the downloaded artifact directories
+          files: release-assets/*/*
+
+  publish-python:
+    name: Publish Python SDK to PyPI
+    needs: release
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+      - name: Install dependencies and build
+        run: |
+          cd sdk/python
+          python -m pip install --upgrade pip
+          pip install build
+          python -m build
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          user: __token__
+          password: ${{ secrets.PYPI_API_TOKEN }}
+          packages_dir: sdk/python/dist/
+
+  publish-node:
+    name: Publish Node.js SDK to NPM
+    needs: release
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          registry-url: 'https://registry.npmjs.org'
+      - name: Install dependencies and publish
+        run: |
+          cd sdk/node
+          npm ci
+          npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
