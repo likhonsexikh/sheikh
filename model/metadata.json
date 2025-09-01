@@ -1,0 +1,13 @@
+{
+  "name": "Sheikh LLM",
+  "version": "1.0.0",
+  "description": "A compact, edge-friendly language model (<300MB).",
+  "author": "Sheikh Development Team",
+  "license": "MIT",
+  "parameters": {
+    "size": "280M",
+    "quantization": "4-bit NF4",
+    "context_length": 512
+  },
+  "comment": "This is a placeholder for the model metadata."
+}

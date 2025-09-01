@@ -1,0 +1,10 @@
+{
+  "type": "Byte-Pair Encoding",
+  "vocab_size": 32000,
+  "special_tokens": {
+    "bos_token": "<s>",
+    "eos_token": "</s>",
+    "unk_token": "<unk>"
+  },
+  "comment": "This is a placeholder for the tokenizer configuration."
+}

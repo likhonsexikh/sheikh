@@ -1,0 +1,302 @@
+name: Sheikh LLM - Full CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+    tags: ['v*.*.*']
+  pull_request:
+    branches: [main]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # Job 1: Build and Test
+  build-and-test:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      should_release: ${{ steps.check.outputs.should_release }}
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine Version
+        id: version
+        run: |
+          if [[ $GITHUB_REF == refs/tags/v* ]]; then
+            VERSION=${GITHUB_REF#refs/tags/v}
+          elif [[ $GITHUB_REF == refs/tags/* ]]; then
+            VERSION=${GITHUB_REF#refs/tags/}
+          else
+            VERSION="dev-$(git rev-parse --short HEAD)"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
+
+      - name: Check if Should Release
+        id: check
+        run: |
+          if [[ $GITHUB_REF == refs/tags/v*.*.* ]]; then
+            echo "should_release=true" >> $GITHUB_OUTPUT
+          else
+            echo "should_release=false" >> $GITHUB_OUTPUT
+          fi
+
+      # Build Runtime (Multi-platform)
+      - name: Set up Cross-compilation
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu gcc-mingw-w64
+
+      - name: Build Runtime Binaries
+        run: |
+          cd runtime
+
+          # Linux x86_64
+          make clean && make build
+          mv sheikh sheikh-linux-x64
+
+          # Linux ARM64
+          make clean && CC=aarch64-linux-gnu-gcc make build
+          mv sheikh sheikh-linux-arm64
+
+          # Windows x64 (if supported by Makefile)
+          # make clean && CC=x86_64-w64-mingw32-gcc make build
+          # mv sheikh.exe sheikh-windows-x64.exe
+
+          ls -la sheikh-*
+          cd ..
+
+      # Package Model and Assets
+      - name: Package Model Files
+        run: |
+          mkdir -p release_assets
+          cp model/sheikh.gguf release_assets/
+          cp model/tokenizer.json release_assets/
+          cp model/metadata.json release_assets/
+          cp runtime/sheikh-* release_assets/
+          cp -r examples/ release_assets/
+
+          cat > release_assets/README.md << 'EOF'
+          # Sheikh LLM Release ${{ steps.version.outputs.version }}
+          For detailed documentation, visit: https://github.com/${{ github.repository }}
+          EOF
+
+      # Install Dependencies for Testing
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install Python Dependencies
+        run: |
+          cd sdk/python
+          pip install -e .
+          pip install pytest pytest-cov requests
+          cd ../..
+
+      - name: Install Node Dependencies
+        run: |
+          cd sdk/node
+          npm install
+          cd ../..
+
+      # Run Validation Tests
+      - name: Run Model Validation Tests
+        run: python tests/model_validation.py
+
+      - name: Run Runtime Tests
+        run: bash tests/runtime_tests.sh runtime/sheikh-linux-x64
+
+      - name: Run Python SDK Tests
+        run: |
+          cd sdk/python
+          pytest tests/ -v --cov=sheikh_sdk
+          cd ../..
+
+      - name: Run Node SDK Tests
+        run: |
+          cd sdk/node
+          npm test
+          cd ../..
+
+      - name: Run Integration Tests
+        run: python tests/integration_tests.py --runtime runtime/sheikh-linux-x64
+
+      # Create Release Archive
+      - name: Create Release Archive
+        run: |
+          cd release_assets
+          tar -czf ../sheikh-v${{ steps.version.outputs.version }}.tar.gz .
+          cd ..
+          sha256sum sheikh-v${{ steps.version.outputs.version }}.tar.gz > checksums.txt
+
+      # Upload Build Artifacts
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: sheikh-release-v${{ steps.version.outputs.version }}
+          path: |
+            sheikh-v${{ steps.version.outputs.version }}.tar.gz
+            checksums.txt
+            release_assets/
+
+  # Job 2: Create GitHub Release (only on tags)
+  release:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: needs.build-and-test.outputs.should_release == 'true'
+
+    steps:
+      - name: Download Build Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: sheikh-release-v${{ needs.build-and-test.outputs.version }}
+
+      - name: Generate Release Notes
+        id: release_notes
+        run: |
+          VERSION_NUMBER="${{ needs.build-and-test.outputs.version }}"
+          NOTES_BODY="""
+          ## Sheikh LLM $VERSION_NUMBER
+
+          ### What's New
+          - Model optimizations and performance improvements
+          - Enhanced SDK functionality
+          - Bug fixes and stability improvements
+          """
+          echo "notes<<EOF" >> $GITHUB_OUTPUT
+          echo "$NOTES_BODY" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: v${{ needs.build-and-test.outputs.version }}
+          name: Sheikh LLM v${{ needs.build-and-test.outputs.version }}
+          body: ${{ steps.release_notes.outputs.notes }}
+          files: |
+            sheikh-v${{ needs.build-and-test.outputs.version }}.tar.gz
+            checksums.txt
+            release_assets/sheikh-linux-x64
+            release_assets/sheikh-linux-arm64
+          draft: false
+          prerelease: false
+
+  # Job 3: Publish SDKs (only on tags)
+  publish-sdks:
+    needs: [build-and-test, release]
+    runs-on: ubuntu-latest
+    if: needs.build-and-test.outputs.should_release == 'true'
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python and Node
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Update SDK Versions
+        run: |
+          VERSION_NUMBER="${{ needs.build-and-test.outputs.version }}"
+          sed -i "s/version=\"[^\"]*\"/version=\"$VERSION_NUMBER\"/" sdk/python/setup.py
+          cd sdk/node
+          npm version $VERSION_NUMBER --no-git-tag-version
+          cd ../..
+
+      - name: Publish Python SDK to PyPI
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+        run: |
+          cd sdk/python
+          pip install build twine
+          python -m build
+          twine upload dist/*
+
+      - name: Publish Node SDK to NPM
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          cd sdk/node
+          npm publish --access public
+
+  # Job 4: Docker Image (only on tags)
+  docker:
+    needs: [build-and-test, release]
+    runs-on: ubuntu-latest
+    if: needs.build-and-test.outputs.should_release == 'true'
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./runtime/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}, ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:v${{ needs.build-and-test.outputs.version }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # Job 5: Update Documentation (GitHub Pages)
+  docs:
+    needs: [build-and-test]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install Docs Dependencies
+        run: pip install mkdocs mkdocs-material mkdocs-mermaid2-plugin
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./site
+          # Note: This assumes you have a script to generate docs into the 'site' directory
+          # You might need a `mkdocs build` step before this.

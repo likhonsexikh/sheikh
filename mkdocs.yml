@@ -1,0 +1,38 @@
+site_name: Sheikh LLM Documentation
+site_url: https://username.github.io/sheikh-llm
+repo_url: https://github.com/username/sheikh-llm
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - search.highlight
+
+plugins:
+  - search
+  - mermaid2
+
+nav:
+  - Home: index.md
+  - Quick Start: quickstart.md
+  - API Reference: api_reference.md
+  - Examples: examples.md
+  - Deployment: deployment_guide.md
+  - SDK Documentation:
+    - Python SDK: sdk/python.md
+    - Node.js SDK: sdk/nodejs.md
+    - JavaScript SDK: sdk/javascript.md
+
+markdown_extensions:
+  - pymdownx.highlight
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format

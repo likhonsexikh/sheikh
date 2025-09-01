@@ -1,0 +1,27 @@
+{
+  "name": "sheikh-sdk",
+  "version": "1.2.3",
+  "description": "Node.js SDK for Sheikh LLM",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": ["llm", "ai", "sheikh", "language-model"],
+  "author": "Sheikh Development Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/username/sheikh-llm.git"
+  },
+  "dependencies": {
+    "axios": "^1.6.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0",
+    "jest": "^29.0.0"
+  }
+}
