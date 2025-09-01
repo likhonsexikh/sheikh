@@ -300,3 +300,47 @@ jobs:
           publish_dir: ./site
           # Note: This assumes you have a script to generate docs into the 'site' directory
           # You might need a `mkdocs build` step before this.
+
+  # Job 6: Publish to Hugging Face Hub (only on tags)
+  publish-to-hf:
+    needs: [release]
+    runs-on: ubuntu-latest
+    if: needs.build-and-test.outputs.should_release == 'true'
+
+    steps:
+      - name: Download Build Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: sheikh-release-v${{ needs.build-and-test.outputs.version }}
+          path: release_artifacts
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install Hugging Face Hub library
+        run: pip install huggingface-hub
+
+      - name: Push to Hugging Face Hub
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          # The repo ID on the Hub. e.g., 'your-username/sheikh-llm'
+          # This should be configured as a secret or variable for flexibility.
+          HF_REPO_ID="${{ github.repository_owner }}/sheikh-llm"
+
+          huggingface-cli upload $HF_REPO_ID \
+            --repo-type model \
+            --commit-message "Release v${{ needs.build-and-test.outputs.version }}" \
+            release_artifacts/sheikh.gguf sheikh.gguf
+
+          huggingface-cli upload $HF_REPO_ID \
+            --repo-type model \
+            --commit-message "Release v${{ needs.build-and-test.outputs.version }}" \
+            release_artifacts/tokenizer.json tokenizer.json
+
+          huggingface-cli upload $HF_REPO_ID \
+            --repo-type model \
+            --commit-message "Release v${{ needs.build-and-test.outputs.version }}" \
+            release_artifacts/metadata.json metadata.json

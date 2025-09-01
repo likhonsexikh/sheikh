@@ -63,3 +63,21 @@ You can also run the compiled runtime binary directly on your machine.
 ## Building from Source
 
 If you need to build the runtime from source, refer to the instructions in the `runtime/` directory of the repository.
+
+---
+
+## Publishing to Hugging Face Hub
+
+The CI/CD pipeline is configured to automatically upload the model files (`sheikh.gguf`, `tokenizer.json`, `metadata.json`) to the Hugging Face Hub when a new version tag is pushed.
+
+This is handled by the `publish-to-hf` job in the workflow.
+
+## Repository Secrets Configuration
+
+For the automation to work correctly, you must configure the following secrets in your GitHub repository's settings (`Settings > Secrets and variables > Actions`):
+
+-   `PYPI_API_TOKEN`: Your API token for publishing the Python SDK to PyPI.
+-   `NPM_TOKEN`: Your authentication token for publishing the Node.js SDK to NPM.
+-   `HF_TOKEN`: Your Hugging Face Hub token with `write` permissions to the target repository.
+
+These secrets are used by the `publish-sdks` and `publish-to-hf` jobs.
