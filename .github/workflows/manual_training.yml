@@ -1,0 +1,59 @@
+# .github/workflows/manual_training.yml
+
+name: Manual AutoTrain Training Job
+
+on:
+  # This allows the workflow to be triggered manually from the Actions tab
+  workflow_dispatch:
+    inputs:
+      backend:
+        description: 'HF Space Backend to use for training.'
+        required: true
+        default: 'spaces-cpu-basic'
+        type: choice
+        options:
+          - spaces-cpu-basic
+          - spaces-cpu-upgrade
+          - spaces-t4-small
+          - spaces-t4-medium
+          - spaces-a10g-small
+          - spaces-a10g-large
+      project_name:
+        description: 'A unique name for this training run on the Hub.'
+        required: true
+        default: 'sheikh-llm-manual-training'
+
+jobs:
+  run-autotrain-job:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install autotrain-advanced
+        run: pip install -U autotrain-advanced
+
+      - name: Run AutoTrain SpaceRunner
+        env:
+          # The HF_TOKEN needs to be set in the repository secrets
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          # The username is taken from the repository owner (e.g., 'likhonsexikh')
+          HF_USERNAME: ${{ github.repository_owner }}
+        run: |
+          echo "Launching training job with the following parameters:"
+          echo "Project Name: ${{ github.event.inputs.project_name }}"
+          echo "Backend:      ${{ github.event.inputs.backend }}"
+          echo "Username:     $HF_USERNAME"
+
+          autotrain spacerunner \
+            --project-name "${{ github.event.inputs.project_name }}" \
+            --script-path ./training \
+            --username "$HF_USERNAME" \
+            --token "$HF_TOKEN" \
+            --backend "${{ github.event.inputs.backend }}" \
+            --args "push_to_hub"

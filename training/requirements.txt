@@ -1,0 +1,12 @@
+# Requirements for the Sheikh LLM training script
+
+# For interacting with the Hugging Face Hub
+huggingface-hub
+
+# For loading datasets (example)
+# datasets
+
+# For training models (example)
+# transformers
+
+# Add any other dependencies for your training script here.

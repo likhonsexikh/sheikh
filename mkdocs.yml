@@ -21,6 +21,7 @@ plugins:
 nav:
   - Home: index.md
   - Quick Start: quickstart.md
+  - Training Guide: training_guide.md
   - API Reference: api_reference.md
   - Examples: examples.md
   - Deployment: deployment_guide.md
