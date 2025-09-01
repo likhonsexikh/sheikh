@@ -50,3 +50,26 @@ bash scripts/run_training.sh
 # Pass extra arguments to the training script
 bash scripts/run_training.sh --hf_hub_repo_id my-finetuned-model
 ```
+
+---
+
+## Automated Fine-Tuning Workflow
+
+In addition to the manual methods, this repository is equipped with a fully automated fine-tuning workflow (`.github/workflows/automated_finetuning.yml`).
+
+### Triggers
+
+This workflow is automatically triggered by either of the following events:
+
+1.  **A push to the `main` branch that includes changes inside the `/data` directory.** This allows you to trigger a new training run by simply updating your dataset.
+2.  **A new version tag is pushed** (e.g., `v1.3.0`). This ensures that a new model is trained and validated as part of the release process.
+
+### Process
+
+When triggered, the workflow will:
+
+1.  **Validate the dataset** (this is a placeholder step).
+2.  **Launch an AutoTrain SpaceRunner job** using the settings in `scripts/run_training.sh`.
+3.  **Send a notification** on success or failure (this is a placeholder step).
+
+This automation ensures that your models are always kept up-to-date with your latest data and code, creating a true CI/CD for ML pipeline.

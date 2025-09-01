@@ -1,0 +1,67 @@
+# .github/workflows/automated_finetuning.yml
+
+name: Automated Maverick Fine-Tuning
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      # This path should exist in the repo for the trigger to work.
+      # I will create a placeholder 'data/' directory.
+      - 'data/**'
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  automated-fine-tuning:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Validate Dataset
+        id: validate_dataset
+        run: |
+          echo "--- Validating dataset ---"
+          # This is a placeholder step.
+          # In a real scenario, you would have a script here to check the
+          # integrity, format, and content of the dataset in the 'data/' directory.
+          if [ -d "data" ] && [ -n "$(ls -A data)" ]; then
+            echo "✅ Dataset directory contains files. Validation successful (placeholder)."
+          else
+            echo "⚠️ Dataset directory is empty or does not exist. Skipping job."
+            # This will stop the job from proceeding if no data is present
+            exit 78
+          fi
+
+      - name: Launch AutoTrain Job
+        if: success() # Only run if the validation step passed
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          # Use environment variables to configure the training script
+          HF_USERNAME: ${{ github.repository_owner }}
+          # Create a unique project name for each run
+          PROJECT_NAME: "sheikh-maverick-automated-finetune-${{ github.run_id }}"
+          # Use a GPU-enabled backend for fine-tuning
+          BACKEND: "spaces-a10g-small"
+        run: |
+          echo "--- Launching automated fine-tuning job ---"
+          bash scripts/run_training.sh
+
+      - name: Notify on Success
+        if: success()
+        run: |
+          echo "--- Sending success notification ---"
+          # This is a placeholder for a notification step.
+          # You could use an action to send a Slack message, Discord webhook, or an email.
+          # Example: https://github.com/slackapi/slack-github-action
+          echo "✅ Fine-tuning job successfully launched."
+          echo "Project Name: sheikh-maverick-automated-finetune-${{ github.run_id }}"
+
+      - name: Notify on Failure
+        if: failure()
+        run: |
+          echo "--- Sending failure notification ---"
+          echo "❌ Fine-tuning workflow failed."
+          # Add notification logic here as well.
