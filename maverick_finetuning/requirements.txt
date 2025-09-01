@@ -1,0 +1,16 @@
+# Requirements for fine-tuning the Maverick model with AutoTrain
+
+# Core libraries from Hugging Face
+transformers
+datasets
+accelerate
+huggingface-hub
+
+# For efficient fine-tuning techniques like LoRA
+peft
+
+# For memory-efficient training (e.g., 8-bit or 4-bit quantization)
+bitsandbytes
+
+# For image processing with multi-modal models
+Pillow

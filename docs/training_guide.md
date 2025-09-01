@@ -1,53 +1,52 @@
-# Training Guide
+# Fine-Tuning Guide
 
-This guide explains how to launch custom training jobs for the Sheikh LLM model using Hugging Face's AutoTrain SpaceRunner.
+This guide explains how to launch custom fine-tuning jobs for models like `meta-llama/Llama-4-Maverick-17B-128E-Instruct` using this repository's integrated workflow with Hugging Face's AutoTrain SpaceRunner.
 
 ## Overview
 
-We have integrated a workflow that allows you to launch a training job on a Hugging Face Space directly from this repository. This is useful for fine-tuning the model on your own data.
+We have set up a complete project for fine-tuning the Maverick model in the `/maverick_finetuning` directory. This includes a training script, a configuration file, and dependency management.
 
-The core of this system is the `autotrain spacerunner` command, which packages up a project directory and runs a `script.py` file on a remote machine.
+The system uses `autotrain spacerunner` to execute this fine-tuning project on a remote Hugging Face Space, which is ideal for long-running, GPU-intensive tasks.
 
-## Preparing Your Training Data
+## The Fine-Tuning Project (`/maverick_finetuning`)
 
-Before you can launch a training job, you need to prepare your dataset and upload it to the Hugging Face Hub. The training script in the `/training` directory is a template that expects to load a dataset from the Hub. You will need to modify `training/script.py` to point to your specific dataset.
+-   **`script.py`**: The main training script. It's a template that handles loading the Maverick model, applying PEFT (LoRA) for efficient tuning, and using the `transformers` Trainer. **You must adapt this script to load your own dataset.**
+-   **`config.json`**: Contains all the key hyperparameters for training, such as learning rate, batch size, and epochs. You can modify this file to experiment with different settings.
+-   **`requirements.txt`**: Lists all the necessary Python packages for the fine-tuning job.
 
-## Launching a Training Job
+## Launching a Fine-Tuning Job
 
-There are two ways to launch a training job:
+### Prerequisites
 
-### 1. Using the Manual GitHub Workflow (Recommended)
+-   **A Hugging Face Account**: You need an account to use Spaces and the Hub.
+-   **A Hugging Face Token**: You must have a Hugging Face User Access Token with `write` permissions. Set it as an environment variable:
+    ```bash
+    export HF_TOKEN='your_hf_write_token'
+    ```
+-   **A Fine-Tuning Dataset**: You must have a dataset suitable for the model, uploaded to the Hugging Face Hub. You will need to edit `maverick_finetuning/script.py` to point to your dataset.
 
-This is the easiest way to start a training job.
+### Option 1: Manual GitHub Workflow (Recommended)
 
 1.  Navigate to the **Actions** tab of this repository.
 2.  In the left sidebar, click on the **Manual AutoTrain Training Job** workflow.
 3.  Click the **Run workflow** dropdown button.
-4.  You can choose the `backend` (the type of machine to run on) and provide a unique `project_name` for the job.
-5.  Click the green **Run workflow** button.
+4.  Choose a GPU-enabled `backend` (e.g., `spaces-a10g-small`).
+5.  Provide a unique `project_name` for the job.
+6.  Click **Run workflow**.
 
-The workflow will start, and you can monitor its progress in the Actions tab. It will provide a link to the Hugging Face Space where the training is running.
+### Option 2: Local Script
 
-### 2. Using the Local Script
+You can also launch a job from your local machine using the helper script.
 
-You can also launch a training job from your local machine.
+```bash
+# Run with default settings
+bash scripts/run_training.sh
 
-1.  **Set your Hugging Face Token**:
-    Make sure your `HF_TOKEN` environment variable is set.
-    ```bash
-    export HF_TOKEN='your_hf_write_token'
-    ```
+# Override settings with environment variables
+export BACKEND="spaces-a10g-large"
+export PROJECT_NAME="my-awesome-finetune"
+bash scripts/run_training.sh
 
-2.  **Run the script**:
-    Execute the `run_training.sh` script from the root of the repository.
-    ```bash
-    bash scripts/run_training.sh
-    ```
-    You can modify the script to change the project name, backend, etc.
-
-## Customizing the Training
-
-To customize the training process, you can edit the files in the `/training` directory:
-
--   **`training/script.py`**: This is the main training script. You can modify it to use your own dataset, change training arguments, and customize the model saving logic.
--   **`training/requirements.txt`**: Add any Python dependencies your training script needs.
+# Pass extra arguments to the training script
+bash scripts/run_training.sh --hf_hub_repo_id my-finetuned-model
+```
