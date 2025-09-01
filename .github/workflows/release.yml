@@ -1,155 +1,91 @@
-# .github/workflows/release.yml
-
 name: Release Sheikh LLM
 
+# Trigger this workflow on version tags (vX.Y.Z)
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - "v*.*.*"
 
 jobs:
-  build:
-    name: Build for ${{ matrix.platform }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        include:
-          - os: ubuntu-latest
-            platform: linux-amd64
-          - os: macos-latest
-            platform: macos-amd64
-          - os: macos-latest
-            platform: macos-arm64
-          - os: windows-latest
-            platform: windows-amd64
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-
-      # Add setup steps for dependencies if needed.
-      # For example, setting up a specific compiler or environment for cross-compilation.
-      # - name: Setup Build Environment
-      #   run: |
-      #     # Your setup commands here
-
-      - name: Build Runtime
-        # This command should build your binary.
-        # Pass the platform to your build script to handle platform-specific logic.
-        run: make build TARGET=${{ matrix.platform }}
-
-      - name: Prepare Release Archive
-        shell: bash
-        run: |
-          # Define a platform-specific directory and archive name
-          PLATFORM_NAME="${{ matrix.platform }}"
-          ARCHIVE_DIR="sheikh-dist"
-          mkdir -p $ARCHIVE_DIR
-
-          # Use a temporary staging directory to control the archive's internal structure
-          TEMP_DIR="staging"
-          mkdir -p $TEMP_DIR
-          cp -r model/ $TEMP_DIR/
-          cp -r runtime/ $TEMP_DIR/
-          cp -r sdk/ $TEMP_DIR/
-          cp -r examples/ $TEMP_DIR/
-          cp Dockerfile $TEMP_DIR/
-
-          # Create the archive from the contents of the staging directory
-          if [ "${{ matrix.os }}" == "windows-latest" ]; then
-            ARCHIVE_NAME="sheikh-${{ github.ref_name }}-${PLATFORM_NAME}.zip"
-            7z a "$ARCHIVE_DIR/$ARCHIVE_NAME" "./$TEMP_DIR/*"
-          else
-            ARCHIVE_NAME="sheikh-${{ github.ref_name }}-${PLATFORM_NAME}.tar.gz"
-            tar -czf "$ARCHIVE_DIR/$ARCHIVE_NAME" -C $TEMP_DIR .
-          fi
-          echo "ARCHIVE_PATH=$ARCHIVE_DIR/$ARCHIVE_NAME" >> $GITHUB_ENV
-
-      - name: Upload Release Asset
-        uses: actions/upload-artifact@v3
-        with:
-          name: release-asset-${{ matrix.platform }}
-          path: ${{ env.ARCHIVE_PATH }}
-
   release:
-    name: Create GitHub Release
-    needs: build
+    name: Build and Release Sheikh LLM
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
 
     steps:
+      # Step 1: Checkout the repository
       - name: Checkout repository
-        # This step is crucial to access the release-notes-template.md file
         uses: actions/checkout@v3
 
-      - name: Download all release assets
-        uses: actions/download-artifact@v3
-        with:
-          path: release-assets
-
-      - name: Get Release Notes from Template
-        id: get_release_notes
+      # Step 2: Build the runtime
+      - name: Build Sheikh runtime
         run: |
-          # Replace the version placeholder (vX.X.X) with the actual tag
-          NOTES=$(sed "s/vX.X.X/${{ github.ref_name }}/g" release-notes-template.md)
-          # Use the new GITHUB_OUTPUT method to set multiline output
-          echo "notes<<EOF" >> $GITHUB_OUTPUT
-          echo "$NOTES" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          cd runtime && make clean && make
+        shell: bash
 
+      # Step 3: Verify model presence
+      - name: Verify model binary
+        run: |
+          if [ ! -f "model/sheikh.gguf" ]; then
+            echo "Model binary file not found at model/sheikh.gguf"
+            exit 1
+          fi
+
+      # Step 4: Package the release artifacts
+      - name: Package artifacts
+        run: |
+          mkdir release
+          cp model/sheikh.gguf release/
+          cp runtime/sheikh release/
+          cp -R sdk/python release/python-sdk
+          cp -R sdk/node release/node-sdk
+          zip -r release/sheikh-v${{ github.ref_name }}.zip release/
+
+      # Step 5: Create GitHub Release
       - name: Create GitHub Release
-        uses: ncipollo/release-action@v1
+        id: create_release
+        uses: actions/create-release@v1
         with:
-          tag: ${{ github.ref_name }}
-          name: Sheikh LLM ${{ github.ref_name }}
-          body: ${{ steps.get_release_notes.outputs.notes }}
-          prerelease: false
-          # Use a glob pattern that reliably finds all archives in the downloaded artifact directories
-          files: release-assets/*/*
+          tag_name: ${{ github.ref_name }}
+          release_name: Sheikh LLM ${{ github.ref_name }}
+          body: |
+            ## Sheikh LLM Release Notes
 
-  publish-python:
-    name: Publish Python SDK to PyPI
-    needs: release
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-      - name: Set up Python
-        uses: actions/setup-python@v4
+            - **Sliding-Window Reasoning** support.
+            - Optimized for low-power edge devices.
+            - SDKs for both Python and Node.js included.
+            - Lightweight <300MB model included.
+
+          draft: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Step 6: Upload release assets to GitHub Release
+      - name: Upload release assets
+        uses: actions/upload-release-asset@v2
         with:
-          python-version: '3.x'
-      - name: Install dependencies and build
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: release/sheikh-v${{ github.ref_name }}.zip
+          asset_name: sheikh-v${{ github.ref_name }}.zip
+          asset_content_type: application/zip
+
+      # Step 7 (Optional): Publish Python SDK to PyPI
+      - name: Publish Python SDK to PyPI
+        if: github.ref_name == 'main' || startsWith(github.ref_name, 'v')
+        env:
+          TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
+          TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
         run: |
           cd sdk/python
-          python -m pip install --upgrade pip
-          pip install build
+          pip install build twine
           python -m build
-      - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          user: __token__
-          password: ${{ secrets.PYPI_API_TOKEN }}
-          packages_dir: sdk/python/dist/
+          twine upload dist/*
 
-  publish-node:
-    name: Publish Node.js SDK to NPM
-    needs: release
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
-          registry-url: 'https://registry.npmjs.org'
-      - name: Install dependencies and publish
+      # Step 8 (Optional): Publish Node SDK to NPM
+      - name: Publish Node SDK to NPM
+        if: github.ref_name == 'main' || startsWith(github.ref_name, 'v')
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           cd sdk/node
-          npm ci
+          npm version ${{ github.ref_name }}
           npm publish
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
