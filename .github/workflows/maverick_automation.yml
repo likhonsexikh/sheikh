@@ -1,0 +1,58 @@
+# .github/workflows/maverick_automation.yml
+
+name: Maverick Agent Automation
+
+on:
+  workflow_dispatch:
+    inputs:
+      model_endpoint:
+        description: 'The Maverick model inference API endpoint.'
+        required: true
+        default: 'https://api-inference.huggingface.co/models/likhonsheikhdev/Maverick'
+      prompt_file:
+        description: 'Path to the structured pre-prompt YAML file.'
+        required: true
+        default: '.github/maverick/maverick_pre_prompt.yml'
+
+jobs:
+  run-maverick-agent:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Install PyYAML
+        run: pip install pyyaml
+
+      - name: Convert Pre-Prompt YAML to JSON
+        id: convert_yaml
+        run: |
+          echo "Converting ${{ github.event.inputs.prompt_file }} to JSON..."
+          python -c 'import yaml, json, sys; json.dump(yaml.safe_load(sys.stdin), sys.stdout)' < ${{ github.event.inputs.prompt_file }} > pre_prompt.json
+          echo "✅ Conversion complete. JSON content:"
+          cat pre_prompt.json
+
+      - name: Send Instructions to Maverick Agent
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          echo "--- Sending instructions to Maverick at ${{ github.event.inputs.model_endpoint }} ---"
+
+          # In a real scenario, the response from the agent would be captured
+          # and used to trigger further actions. This is a demonstration.
+          response=$(curl -X POST \
+            -H "Authorization: Bearer $HF_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d @pre_prompt.json \
+            "${{ github.event.inputs.model_endpoint }}")
+
+          echo "--- Agent Response ---"
+          echo "$response"
+          echo "----------------------"
+
+          # Here you would add logic to parse the response and act on it.
