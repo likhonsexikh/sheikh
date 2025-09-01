@@ -1,3 +1,53 @@
+const https = require('https');
+require('dotenv').config();
+
+/**
+ * Calls the Sheikh model API to get a review.
+ * @param {string} prompt The prompt to send to the model.
+ * @returns {Promise<string>} The model's response.
+ */
+function callSheikhModel(prompt) {
+  return new Promise((resolve, reject) => {
+    const endpoint = new URL(process.env.SHEIKH_MODEL_ENDPOINT);
+    const options = {
+      hostname: endpoint.hostname,
+      path: endpoint.pathname,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.SHEIKH_API_KEY}`,
+      },
+    };
+
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', (chunk) => {
+        data += chunk;
+      });
+      res.on('end', () => {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          try {
+            const responseBody = JSON.parse(data);
+            // Adjust this based on the actual API response structure
+            resolve(responseBody[0].generated_text);
+          } catch (error) {
+            reject(new Error('Failed to parse model response.'));
+          }
+        } else {
+          reject(new Error(`Model API returned status code ${res.statusCode}: ${data}`));
+        }
+      });
+    });
+
+    req.on('error', (error) => {
+      reject(error);
+    });
+
+    req.write(JSON.stringify({ inputs: prompt }));
+    req.end();
+  });
+}
+
 /**
  * @param {import('probot').Probot} app
  */
@@ -53,12 +103,24 @@ module.exports = (app) => {
         <answer>
       `;
 
-      // Placeholder for Sheikh model API call
-      // In a real implementation, this would be an HTTP call to the model endpoint.
-      // const sheikhResponse = await callSheikhModel(prompt);
-      const sheikhResponse = "This is a placeholder review. The document looks good, but could be improved with more examples.";
-
-      await context.octokit.issues.createComment({
+      try {
+        const sheikhResponse = await callSheikhModel(prompt);
+        await context.octokit.issues.createComment({
+          owner,
+          repo,
+          issue_number: pull_number,
+          body: `### Review for ${file.filename}\n\n${sheikhResponse}`,
+        });
+      } catch (error) {
+        app.log.error(`Failed to get review for ${file.filename}: ${error.message}`);
+        await context.octokit.issues.createComment({
+          owner,
+          repo,
+          issue_number: pull_number,
+          body: `### Review for ${file.filename}\n\nSorry, I was unable to get a review for this file. Error: ${error.message}`,
+        });
+      }
+    }
         owner,
         repo,
         issue_number: pull_number,
