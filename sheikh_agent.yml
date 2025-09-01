@@ -1,0 +1,124 @@
+agent:
+  name: Sheikh LLM
+  version: 1.0
+  description: >
+    Sheikh is a compact, edge-friendly language model (<300MB) designed to understand
+    and generate structured documents such as XML, MDX, and Markdown. It supports
+    instruction-following, prototype intelligence for reasoning, and on-device
+    inference with minimal latency.
+
+capabilities:
+  - Generate XML sitemaps, tables, and structured templates
+  - Generate MDX content for documentation, blogs, and components
+  - Convert Markdown to structured XML/MDX formats
+  - Summarize structured documents
+  - Extract key-value pairs or data from XML/MDX
+  - Validate syntax and structure of XML/MDX
+  - Assist in creating structured documentation workflows
+  - Provide suggestions for formatting, optimization, and compliance
+  - Prototype intelligence:
+      description: >
+        Supports multi-step reasoning over small contexts (256–512 tokens),
+        includes sliding window context, syntax-aware validation, and
+        lightweight retrieval augmentation.
+  - Perform single-turn Q&A on structured documents
+  - Generate instructional prompts for MDX/XML automation
+  - Assist in creating reusable templates for structured data
+  - Provide guidance for versioning and structured document lifecycle
+  - Integration support for databases, APIs, and retrieval systems
+  - Security and access control recommendations for structured content
+  - Deployment guidance for edge devices and local development
+
+logic_flow:
+  description: >
+    Sheikh agent follows a structured multi-step logic for generating and validating
+    content while remaining fast and memory-efficient for edge devices.
+
+  steps:
+    - Receive Input:
+        type: structured instruction or XML/MDX prompt
+        example: "Generate a blog component in MDX with metadata for SEO"
+    - Preprocessing:
+        - Tokenize input into ≤512 token window
+        - Validate basic syntax if XML/MDX detected
+    - Prototype Reasoning:
+        - Apply sliding window reasoning for multi-step instructions
+        - Use context cache to handle multi-turn logic
+        - Apply lightweight retrieval augmentation if local vector store exists
+    - Model Inference:
+        - Load Sheikh GGUF 4-bit model
+        - Run inference via llama.cpp or ONNX Runtime
+        - Generate structured output
+    - Post-processing:
+        - Validate XML/MDX syntax
+        - Check token limits and trim if necessary
+        - Apply heuristics for style, formatting, and template conformity
+    - Output:
+        - Return structured document, completion, or recommendation
+        - Include error/warning metadata if syntax issues detected
+    - Optional Feedback Loop:
+        - Accept developer corrections or overrides
+        - Update local context cache for next inference
+        - Prepare instruction tuning samples for micro updates
+
+deployment:
+  edge_devices:
+    - Raspberry Pi 4 / 8GB
+    - ARM laptops
+    - Apple Silicon M1/M2
+    - Intel/AMD x86 laptops
+  memory_requirements: 500MB peak
+  latency_target: <200ms per token
+
+local_dev:
+  sdk_support:
+    python:
+      import: "from sheikh_sdk import Sheikh"
+      usage: |
+        model = Sheikh.load("model/sheikh.gguf")
+        response = model.generate("Create XML sitemap for blog")
+    node:
+      import: "const { Sheikh } = require('sheikh-sdk')"
+      usage: |
+        const model = new Sheikh("model/sheikh.gguf")
+        const response = await model.generate("Generate MDX table")
+  docker_support:
+    image: likhonsexikh/sheikh:latest
+    usage: |
+      docker run -it --rm -v $(pwd)/model:/app/model likhonsexikh/sheikh ./sheikh --prompt "Generate MDX snippet"
+
+error_handling:
+  syntax_validation:
+    description: Validate XML/MDX output for compliance
+    action: Reject or flag invalid structure
+  memory_overflow:
+    description: Monitor peak memory usage
+    action: Fallback to partial context or compressed inference
+  token_limit:
+    description: Enforce 256–512 token context window
+    action: Sliding window or truncation
+  logging:
+    description: Maintain error logs, warnings, and output metadata
+    format: JSON
+
+metrics:
+  accuracy: instruction-following fidelity (target ≥70% vs teacher model)
+  speed: latency per token (<200ms)
+  memory: peak usage (<500MB)
+  syntax_compliance: % valid MDX/XML completions
+  usability: SDK integration and CLI success
+
+versioning:
+  model_version: 1.0
+  schema_version: 1.0
+  changelog: |
+    - v1.0 Initial release of Sheikh LLM
+    - Distilled 7B teacher → 200–300M student
+    - 4-bit NF4 quantization applied
+    - Prototype intelligence and structured document support added
+
+notes:
+  - Designed for ultra-lightweight edge deployment
+  - Fully local dev friendly with Python/Node SDKs
+  - Supports CI/CD integration with GitHub Actions for docs and demos
+  - Extendable for retrieval-augmented reasoning and template generation

@@ -1,0 +1,25 @@
+name: Release Sheikh LLM
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  build-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Build Runtime
+        run: make build  # builds llama.cpp
+
+      - name: Package Model
+        run: tar -czf sheikh-release.tar.gz model/ runtime/ sdk/ examples/
+
+      - name: Create GitHub Release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ github.ref_name }}
+          name: Sheikh LLM ${{ github.ref_name }}
+          files: sheikh-release.tar.gz
