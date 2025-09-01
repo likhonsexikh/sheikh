@@ -1,6 +1,4 @@
-# sheikh
-
-# Sheikh LLM – Lightweight AI for Structured Documents
+#  Sheikh LLM – Lightweight AI for Structured Documents
 
 **Sheikh** is a compact, high-performance language model designed for on-device inference, optimized for structured documents like XML, MDX, and Markdown. With a footprint under 300MB, it's ideal for edge devices and local development environments.
 
