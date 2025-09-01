@@ -1,62 +1,43 @@
-# Sheikh LLM Release Notes
+# Sheikh LLM Release Notes – Version {{VERSION}}
 
-## Version vX.Y.Z (Placeholder – update your version here)
+## Highlights
+- Compact LLM (<300MB) optimized for edge devices and local development
+- Supports XML, MDX, Markdown structured documents
+- Fast inference: <200ms per token on ARM/x86/Apple Silicon
+- Docker image and SDKs included for rapid deployment
 
-### 🏆 Highlights
-- **Sliding-Window Reasoning**: Enhanced ability to reason over incrementally processed data streams on edge/local devices.
-- **Edge Optimization**: Sheikh LLM’s <300MB model ensures efficient performance on resource-constrained environments.
-- **Multi-SDK Support**: Official support for both Python and Node.js SDKs for seamless integration into your applications.
-- **Dockerized Deployment**: Run Sheikh LLM with a fully featured Docker container for immediate integration.
+## Features
+- Generate structured XML/MDX content
+- Convert Markdown to XML/MDX templates
+- Syntax validation and formatting checks
+- Prototype intelligence with sliding-window reasoning
+- Python and Node SDKs for local development
+- CI/CD friendly with GitHub Actions integration
 
----
+## Binaries
+- [Model Binary – sheikh.gguf](#)
+- [Compiled Runtime – runtime/sheikh](#)
+- [Docker Image](#)
 
-### 🚀 Features
-- Lightweight runtime with support for **llama.cpp** backend.
-- Pre-trained **GGUF** model included for high-performance inference.
-- Cross-platform deployment (Linux/macOS).
-- Easy integration with Python and Node.js SDKs.
-
----
-
-### 📦 Downloads
-- **Binary Model File**: [Download Sheikh GGUF Model](PLACEHOLDER-BINARY-LINK)
-- **Runtime Executable**: [Download Sheikh Runtime](PLACEHOLDER-RUNTIME-LINK)
-- **Docker Image**: [Docker Image on GitHub Container Registry](PLACEHOLDER-DOCKER-IMAGE-LINK)
-
----
-
-### 🔧 SDK Installation
-#### Python SDK
-Install via pip:
+## SDK Installation
+### Python
 ```bash
-pip install sheikh-llm
+pip install sheikh-sdk
+```
+### Node
+```bash
+npm install sheikh-sdk
 ```
 
-#### Node.js SDK
-Install via npm:
-```bash
-npm install sheikh-llm
-```
+## Upgrade Notes
+- Verify SDK compatibility when upgrading
+- Check templates/workflows for updates
+
+## Edge & Local Notes
+- Supported platforms: ARM, x86, Apple Silicon
+- Peak memory usage: ~500MB
+- Offline/local inference supported
 
 ---
 
-### ⚙️ Upgrade Notes
-- For seamless upgrades, ensure compatibility between model files (`.gguf`) and runtime versions.
-- If deploying via Docker, pull the latest image using:
-  ```bash
-  docker pull PLACEHOLDER-DOCKER-IMAGE-LINK
-  ```
-
----
-
-### 🌍 Notes for Edge/Local Devices
-- The <300MB model is optimized for low-power devices.
-- Ensure at least **4GB** free memory for inference on small devices.
-- When running locally, use the `runtime/sheikh` executable for lighter setups:
-  ```bash
-  ./runtime/sheikh -m ./model/sheikh.gguf
-  ```
-
----
-
-Thank you for using Sheikh LLM! For issues or feature requests, please visit [GitHub Issues](https://github.com/likhonsexikh/sheikh/issues).
+Thank you for using Sheikh LLM! For issues or feature requests, please visit the project's GitHub repository.
