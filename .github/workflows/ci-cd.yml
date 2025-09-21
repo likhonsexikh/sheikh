@@ -133,6 +133,9 @@ jobs:
       - name: Run Integration Tests
         run: python tests/integration_tests.py --runtime runtime/sheikh-linux-x64
 
+      - name: Run CodeAct Agent Tests
+        run: python tests/test_codeact_agent.py
+
       # Create Release Archive
       - name: Create Release Archive
         run: |
